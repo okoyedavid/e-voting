@@ -1,0 +1,11 @@
+import Link from "next/link";
+import { Check, ShieldCheck } from "lucide-react";
+import { Logo } from "@/components/logo";
+import { signupAction } from "@/app/actions";
+
+export const metadata = { title: "Create organizer account" };
+
+export default async function SignupPage({ searchParams }: PageProps<"/signup">) {
+  const error = (await searchParams).error;
+  return <main className="auth-page"><section className="auth-art"><Logo light /><div className="auth-quote"><span className="eyebrow">Start your election</span><h2>Turn your audience into part of the story.</h2><p>Create categories, add standout contestants and launch a paid voting event your community will trust.</p><div className="auth-points"><span><Check size={17} /> No setup charge</span><span><Check size={17} /> Voters never need an account</span><span><ShieldCheck size={17} /> Transparent 5% fee on successful votes</span></div></div><small>Secure payments · Verified votes</small></section><section className="auth-panel"><div className="auth-form"><Logo /><h1>Create your account.</h1><p>Your first voting event is only a few steps away.</p>{error && <p className="form-error">{String(error)}</p>}<form action={signupAction} className="form-stack"><label className="form-field"><span>Your name or organization</span><input name="name" autoComplete="name" placeholder="e.g. Kora Events Africa" required /></label><label className="form-field"><span>Email address</span><input name="email" type="email" autoComplete="email" placeholder="you@example.com" required /></label><label className="form-field"><span>Password</span><input name="password" type="password" minLength={8} autoComplete="new-password" placeholder="At least 8 characters" required /></label><label className="checkbox-field"><input type="checkbox" name="terms" required /><span>I accept the <Link href="/terms">Terms of Service</Link> and acknowledge E-voting&apos;s transparent <strong>5% platform fee</strong> on every successful vote transaction.</span></label><button className="button button-primary button-lg button-full">Create organizer account</button></form><p className="auth-switch">Already have an account? <Link href="/login">Log in</Link></p></div></section></main>;
+}

@@ -1,0 +1,246 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String   @id @default(cuid())
+  name            String
+  email           String   @unique
+  passwordHash    String
+  emailVerifiedAt DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  events          Event[]
+  sessions        Session[]
+  terms           TermsAcceptance[]
+  wallet          Wallet?
+  uploadedImages  ImageAsset[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model TermsAcceptance {
+  id         String   @id @default(cuid())
+  userId     String
+  version    String
+  acceptedAt DateTime @default(now())
+  ipAddress  String?
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, version])
+}
+
+model Event {
+  id                     String   @id @default(cuid())
+  ownerId                String
+  name                   String
+  slug                   String   @unique
+  description            String
+  coverUrl               String?
+  coverImageId           String?  @unique
+  visibility             String   @default("PUBLIC")
+  status                 String   @default("DRAFT")
+  startAt                DateTime
+  endAt                  DateTime
+  pricePerVoteMinor      Int
+  currency               String   @default("NGN")
+  leaderboardVisibility  String   @default("LIVE")
+  publishedAt            DateTime?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  owner                  User     @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  coverImage             ImageAsset? @relation("EventCover", fields: [coverImageId], references: [id], onDelete: SetNull)
+  categories             Category[]
+  transactions           VoteTransaction[]
+  settlement             EventSettlement?
+  finalResults           FinalResult[]
+
+  @@index([ownerId, status])
+  @@index([visibility, startAt, endAt])
+}
+
+model Category {
+  id                    String   @id @default(cuid())
+  eventId               String
+  name                  String
+  description           String?
+  imageUrl              String?
+  imageAssetId          String?  @unique
+  displayOrder          Int      @default(0)
+  priceOverrideMinor    Int?
+  status                String   @default("ACTIVE")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  event                 Event    @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  imageAsset            ImageAsset? @relation("CategoryImage", fields: [imageAssetId], references: [id], onDelete: SetNull)
+  contestants           Contestant[]
+  transactions          VoteTransaction[]
+  finalResults          FinalResult[]
+
+  @@unique([eventId, name])
+  @@index([eventId, displayOrder])
+}
+
+model Contestant {
+  id            String   @id @default(cuid())
+  categoryId    String
+  name          String
+  description   String?
+  imageUrl      String?
+  imageAssetId  String?  @unique
+  reference     String?
+  status        String   @default("ACTIVE")
+  voteTotal     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  category      Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  imageAsset    ImageAsset? @relation("ContestantImage", fields: [imageAssetId], references: [id], onDelete: SetNull)
+  transactions  VoteTransaction[]
+  allocations   VoteAllocation[]
+  finalResults  FinalResult[]
+
+  @@index([categoryId, voteTotal])
+}
+
+model VoteTransaction {
+  id                    String   @id @default(cuid())
+  eventId               String
+  categoryId            String
+  contestantId          String
+  voterEmail            String
+  quantity              Int
+  unitPriceMinor        Int
+  grossAmountMinor      Int
+  platformFeeMinor      Int
+  organizerAmountMinor  Int
+  currency              String
+  paymentReference      String   @unique
+  paymentProvider       String
+  paymentStatus         String   @default("PENDING")
+  idempotencyKey        String   @unique
+  providerEventId       String?
+  creditedAt            DateTime?
+  failedAt              DateTime?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  event                 Event    @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  category              Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  contestant            Contestant @relation(fields: [contestantId], references: [id], onDelete: Restrict)
+  allocation            VoteAllocation?
+
+  @@index([eventId, paymentStatus])
+  @@index([contestantId, paymentStatus])
+  @@index([createdAt])
+}
+
+model VoteAllocation {
+  id             String   @id @default(cuid())
+  transactionId  String   @unique
+  contestantId   String
+  quantity       Int
+  createdAt      DateTime @default(now())
+  transaction    VoteTransaction @relation(fields: [transactionId], references: [id], onDelete: Restrict)
+  contestant     Contestant @relation(fields: [contestantId], references: [id], onDelete: Restrict)
+
+  @@index([contestantId])
+}
+
+model EventSettlement {
+  id                    String   @id @default(cuid())
+  eventId               String   @unique
+  totalVotes            Int
+  successfulPayments    Int
+  failedPayments        Int
+  grossAmountMinor      Int
+  platformFeeMinor      Int
+  organizerAmountMinor  Int
+  settledAt             DateTime @default(now())
+  event                 Event    @relation(fields: [eventId], references: [id], onDelete: Restrict)
+}
+
+model FinalResult {
+  id             String   @id @default(cuid())
+  eventId        String
+  categoryId     String
+  contestantId   String
+  position       Int
+  finalVotes     Int
+  winningMargin  Int      @default(0)
+  finalizedAt    DateTime @default(now())
+  event          Event    @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  category       Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  contestant     Contestant @relation(fields: [contestantId], references: [id], onDelete: Restrict)
+
+  @@unique([categoryId, contestantId])
+  @@index([eventId, position])
+}
+
+model Wallet {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  availableBalanceMinor Int      @default(0)
+  currency              String   @default("NGN")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  entries               LedgerEntry[]
+}
+
+model LedgerEntry {
+  id                String   @id @default(cuid())
+  walletId          String
+  type              String
+  amountMinor       Int
+  balanceAfterMinor Int
+  description       String
+  reference         String   @unique
+  eventId           String?
+  createdAt         DateTime @default(now())
+  wallet            Wallet   @relation(fields: [walletId], references: [id], onDelete: Restrict)
+
+  @@index([walletId, createdAt])
+}
+
+model WebhookEvent {
+  id              String   @id @default(cuid())
+  provider        String
+  providerEventId String   @unique
+  reference       String
+  payload         String
+  processedAt     DateTime @default(now())
+}
+
+model ImageAsset {
+  id             String   @id @default(cuid())
+  ownerId        String
+  provider       String   @default("CLOUDINARY")
+  url            String
+  secureUrl      String
+  publicId       String   @unique
+  width          Int?
+  height         Int?
+  format         String?
+  bytes          Int?
+  createdAt      DateTime @default(now())
+  owner          User     @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  eventCover     Event?   @relation("EventCover")
+  categoryImage  Category? @relation("CategoryImage")
+  contestantImage Contestant? @relation("ContestantImage")
+
+  @@index([ownerId, createdAt])
+}

@@ -1,0 +1,7 @@
+import { redirect } from "next/navigation";
+import { getCurrentUser } from "@/lib/auth";
+import { db } from "@/lib/db";
+import { formatMoney } from "@/lib/money";
+
+export const dynamic="force-dynamic";
+export default async function TransactionsPage(){const user=await getCurrentUser();if(!user)redirect("/login");const transactions=await db.voteTransaction.findMany({where:{event:{ownerId:user.id}},include:{event:true,contestant:true},orderBy:{createdAt:"desc"},take:100});return <main className="dashboard-content"><div className="dashboard-page-title"><div><h2>Transactions</h2><p>Server-calculated payment and vote records across every event.</p></div></div><div className="data-card"><table className="data-table"><thead><tr><th>Payment</th><th>Event / contestant</th><th>Votes</th><th>Gross</th><th>Fee</th><th>Net</th><th>Status</th></tr></thead><tbody>{transactions.map(tx=><tr key={tx.id}><td><strong>{tx.paymentReference}</strong><small>{tx.paymentProvider} · {tx.createdAt.toLocaleString("en-NG")}</small></td><td><strong>{tx.contestant.name}</strong><small>{tx.event.name}</small></td><td>{tx.quantity.toLocaleString()} × {formatMoney(tx.unitPriceMinor)}</td><td>{formatMoney(tx.grossAmountMinor)}</td><td>{formatMoney(tx.platformFeeMinor)}</td><td>{formatMoney(tx.organizerAmountMinor)}</td><td><span className={`status-badge status-${tx.paymentStatus==="SUCCESSFUL"?"live":"ended"}`}>{tx.paymentStatus}</span></td></tr>)}</tbody></table></div></main>}

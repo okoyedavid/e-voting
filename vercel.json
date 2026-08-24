@@ -1,0 +1,5 @@
+{
+  "crons": [
+    { "path": "/api/cron/settle-events", "schedule": "*/5 * * * *" }
+  ]
+}

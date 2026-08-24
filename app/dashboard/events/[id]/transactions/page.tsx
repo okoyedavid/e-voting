@@ -1,0 +1,6 @@
+import { notFound, redirect } from "next/navigation";
+import { getCurrentUser } from "@/lib/auth";
+import { db } from "@/lib/db";
+import { formatMoney } from "@/lib/money";
+
+export default async function EventTransactions({params}:PageProps<"/dashboard/events/[id]/transactions">){const user=await getCurrentUser();if(!user)redirect("/login");const{id}=await params;const event=await db.event.findFirst({where:{id,ownerId:user.id},include:{transactions:{include:{contestant:true,category:true},orderBy:{createdAt:"desc"}}}});if(!event)notFound();return <div className="data-card"><table className="data-table"><thead><tr><th>Reference</th><th>Contestant</th><th>Votes</th><th>Gross</th><th>Fee</th><th>Net</th><th>Status</th></tr></thead><tbody>{event.transactions.map(tx=><tr key={tx.id}><td><strong>{tx.paymentReference}</strong><small>{tx.createdAt.toLocaleString("en-NG")}</small></td><td><strong>{tx.contestant.name}</strong><small>{tx.category.name}</small></td><td>{tx.quantity.toLocaleString()}</td><td>{formatMoney(tx.grossAmountMinor,tx.currency)}</td><td>{formatMoney(tx.platformFeeMinor,tx.currency)}</td><td>{formatMoney(tx.organizerAmountMinor,tx.currency)}</td><td><span className={`status-badge status-${tx.paymentStatus==="SUCCESSFUL"?"live":"ended"}`}>{tx.paymentStatus}</span></td></tr>)}</tbody></table></div>}
